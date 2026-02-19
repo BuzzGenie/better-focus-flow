@@ -81,7 +81,7 @@ export default function Dashboard() {
     mutationFn: async (data: any) => {
       const res = await apiRequest("POST", "/api/tasks", {
         ...data,
-        deadline: data.deadline ? new Date(data.deadline).toISOString() : null,
+        deadline: data.deadline ? data.deadline + "T23:59:59" : null,
       });
       return res.json();
     },
@@ -100,7 +100,7 @@ export default function Dashboard() {
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
       const res = await apiRequest("PATCH", `/api/tasks/${id}`, {
         ...data,
-        deadline: data.deadline ? new Date(data.deadline).toISOString() : null,
+        deadline: data.deadline ? data.deadline + "T23:59:59" : null,
       });
       return res.json();
     },
