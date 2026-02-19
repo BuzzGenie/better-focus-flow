@@ -51,6 +51,70 @@ A personal time-blocking and task scheduling app with an embedded Google Calenda
 
 ## Tech Stack
 
+| Layer    | Technology                                   |
+|----------|----------------------------------------------|
+| Frontend | React 18, Vite, TailwindCSS, shadcn/ui       |
+| Backend  | Express.js 5 (REST API)                      |
+| Database | PostgreSQL (Neon), Drizzle ORM               |
+| Routing  | wouter (client), Express (server)            |
+| State    | TanStack React Query v5                      |
+| Forms    | react-hook-form + zod validation             |
+| Icons    | lucide-react                                 |
+| Dates    | date-fns                                     |
+
+---
+
+## Project Structure
+
+```bash
+├── client/
+│   └── src/
+│       ├── pages/
+│       │   ├── dashboard.tsx         # Main app page (Google Calendar + task/habit panels)
+│       │   └── not-found.tsx         # 404 page
+│       ├── components/
+│       │   ├── task-panel.tsx        # Task list with filters and actions
+│       │   ├── task-dialog.tsx       # Create/edit task form dialog
+│       │   ├── habit-panel.tsx       # Habit list with toggle controls
+│       │   ├── habit-dialog.tsx      # Create/edit habit form dialog
+│       │   ├── week-calendar.tsx     # Weekly calendar grid component
+│       │   ├── theme-provider.tsx    # Theme context (system/light/dark)
+│       │   ├── theme-toggle.tsx      # Theme toggle button
+│       │   └── ui/                   # shadcn/ui base components
+│       ├── hooks/
+│       │   ├── use-toas
+- Snaps to 15-minute intervals for clean calendar placement
+
+### Recurring Habits
+- Create habits with preferred time of day (morning, afternoon, evening)
+- Select which days of the week each habit is active
+- Toggle habits on/off without deleting them
+- Configurable duration and color per habit
+
+### Google Calendar Integration
+- Embedded Google Calendar iframe displayed side-by-side with the task panel
+- User-configurable email address (stored in settings, not hardcoded)
+- Toggleable panel to show/hide the calendar view
+- Automatic dark-mode filter applied to the iframe (CSS invert + hue-rotate) for visual consistency
+- Detects browser timezone and passes it to the embed URL
+
+### Theming
+- System theme detection (follows OS light/dark preference by default)
+- Manual toggle cycles through: system, light, dark
+- Dark mode: warm charcoal/brown tones (not bright like typical calendar apps)
+- Light mode: warm cream/tan tones
+- Primary accent: muted teal-blue
+
+### Settings
+- Configurable work start and end times (default 09:00 - 17:00)
+- Configurable work days (default Monday - Friday)
+- Minimum scheduling block size in minutes
+- Google Calendar email address
+
+---
+
+## Tech Stack
+
 | Layer     | Technology                                |
 |-----------|-------------------------------------------|
 | Frontend  | React 18, Vite, TailwindCSS, shadcn/ui   |
