@@ -1,37 +1,66 @@
 import { useState, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { type Task, type Habit, type TimeBlock } from "@shared/schema";
-import { addWeeks, subWeeks, format } from "@/lib/date-utils";
-import { formatMonthYear, getWeekRange } from "@/lib/date-utils";
-import { WeekCalendar } from "@/components/week-calendar";
+import { type Task, type Habit, type TimeBlock, type Settings } from "@shared/schema";
+import { getWeekRange } from "@/lib/date-utils";
 import { TaskPanel } from "@/components/task-panel";
 import { HabitPanel } from "@/components/habit-panel";
 import { TaskDialog } from "@/components/task-dialog";
 import { HabitDialog } from "@/components/habit-dialog";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { useTheme } from "@/components/theme-provider";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  ChevronLeft,
-  ChevronRight,
   CalendarDays,
   ListTodo,
   Repeat,
-  LayoutGrid,
+  Calendar,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Check,
+  X,
 } from "lucide-react";
+
+function buildGcalUrl(email: string) {
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  return `https://calendar.google.com/calendar/embed?src=${encodeURIComponent(email)}&ctz=${tz}&showTitle=0&showNav=1&showDate=1&showPrint=0&showTabs=0&showCalendars=0&showTz=0&mode=WEEK`;
+}
 
 export default function Dashboard() {
   const { toast } = useToast();
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const { resolvedTheme } = useTheme();
+  const [currentDate] = useState(new Date());
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [habitDialogOpen, setHabitDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
   const [sideTab, setSideTab] = useState("tasks");
+  const [showGcal, setShowGcal] = useState(true);
+  const [gcalInput, setGcalInput] = useState("");
+  const [isEditingEmail, setIsEditingEmail] = useState(false);
 
   const weekRange = getWeekRange(currentDate);
+
+  const { data: settings } = useQuery<Settings>({
+    queryKey: ["/api/settings"],
+  });
+
+  const gcalEmail = settings?.gcalEmail || "";
+
+  const updateSettingsMutation = useMutation({
+    mutationFn: async (data: Partial<Settings>) => {
+      const res = await apiRequest("PATCH", "/api/settings", data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
+      setIsEditingEmail(false);
+      toast({ title: "Settings saved" });
+    },
+  });
 
   const { data: tasks = [], isLoading: tasksLoading } = useQuery<Task[]>({
     queryKey: ["/api/tasks"],
@@ -41,9 +70,7 @@ export default function Dashboard() {
     queryKey: ["/api/habits"],
   });
 
-  const { data: timeBlocks = [], isLoading: blocksLoading } = useQuery<
-    TimeBlock[]
-  >({
+  const { data: timeBlocks = [] } = useQuery<TimeBlock[]>({
     queryKey: [
       "/api/time-blocks",
       `?start=${weekRange.start.toISOString()}&end=${weekRange.end.toISOString()}`,
@@ -180,24 +207,6 @@ export default function Dashboard() {
     },
   });
 
-  const handleSlotClick = useCallback(
-    (date: Date, hour: number) => {
-      setEditingTask(null);
-      setTaskDialogOpen(true);
-    },
-    []
-  );
-
-  const handleBlockClick = useCallback((block: TimeBlock) => {
-    if (block.blockType === "task" && block.referenceId) {
-      const task = tasks.find((t) => t.id === block.referenceId);
-      if (task) {
-        setEditingTask(task);
-        setTaskDialogOpen(true);
-      }
-    }
-  }, [tasks]);
-
   const handleTaskSubmit = (data: any) => {
     if (editingTask) {
       updateTaskMutation.mutate({ id: editingTask.id, data });
@@ -214,81 +223,128 @@ export default function Dashboard() {
     }
   };
 
+  const handleSaveGcalEmail = () => {
+    updateSettingsMutation.mutate({ gcalEmail: gcalInput.trim() || null } as any);
+  };
+
   return (
     <div className="flex flex-col h-screen bg-background" data-testid="dashboard">
-      <header className="flex items-center justify-between gap-2 px-4 py-2.5 border-b bg-background sticky top-0 z-40">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5">
-            <CalendarDays className="w-5 h-5 text-primary" />
-            <h1 className="text-base font-semibold tracking-tight">BFF</h1>
+      <header className="flex items-center justify-between gap-2 px-4 py-2 border-b bg-card/50 sticky top-0 z-40">
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-md bg-primary/15 flex items-center justify-center">
+              <CalendarDays className="w-4 h-4 text-primary" />
+            </div>
+            <h1 className="text-sm font-semibold tracking-tight uppercase text-foreground/80" data-testid="text-branding">Better Focus Flow</h1>
           </div>
-          <div className="h-5 w-px bg-border" />
-          <div className="flex items-center gap-1">
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={() => setCurrentDate((d) => subWeeks(d, 1))}
-              data-testid="button-prev-week"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setCurrentDate(new Date())}
-              data-testid="button-today"
-            >
-              Today
-            </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={() => setCurrentDate((d) => addWeeks(d, 1))}
-              data-testid="button-next-week"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </Button>
-          </div>
-          <span className="text-sm font-medium text-muted-foreground">
-            {formatMonthYear(currentDate)}
-          </span>
         </div>
-        <ThemeToggle />
+        <div className="flex items-center gap-1 flex-wrap">
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={() => setShowGcal((v) => !v)}
+            data-testid="button-toggle-gcal"
+          >
+            {showGcal ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeftOpen className="w-4 h-4" />}
+          </Button>
+          <ThemeToggle />
+        </div>
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        <div className="flex-1 overflow-hidden">
-          <WeekCalendar
-            currentDate={currentDate}
-            timeBlocks={timeBlocks}
-            onBlockClick={handleBlockClick}
-            onSlotClick={handleSlotClick}
-          />
-        </div>
+        {showGcal && (
+          <div className="flex-1 min-w-0 border-r flex flex-col bg-card/30" data-testid="gcal-panel">
+            <div className="flex items-center justify-between gap-2 px-3 py-2 border-b flex-wrap">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Google Calendar</span>
+              </div>
+              {gcalEmail && !isEditingEmail && (
+                <button
+                  onClick={() => { setGcalInput(gcalEmail); setIsEditingEmail(true); }}
+                  className="text-[10px] text-muted-foreground/70 truncate max-w-[140px]"
+                  data-testid="button-edit-gcal-email"
+                >
+                  {gcalEmail}
+                </button>
+              )}
+            </div>
+            {!gcalEmail || isEditingEmail ? (
+              <div className="flex-1 flex items-center justify-center p-6">
+                <div className="text-center space-y-3 max-w-xs">
+                  <Calendar className="w-8 h-8 text-muted-foreground/40 mx-auto" />
+                  <p className="text-sm text-muted-foreground">Enter your Google Calendar email to see it here</p>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="email"
+                      placeholder="you@gmail.com"
+                      value={gcalInput}
+                      onChange={(e) => setGcalInput(e.target.value)}
+                      className="text-sm"
+                      data-testid="input-gcal-email"
+                    />
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={handleSaveGcalEmail}
+                      disabled={!gcalInput.trim()}
+                      data-testid="button-save-gcal-email"
+                    >
+                      <Check className="w-4 h-4" />
+                    </Button>
+                    {isEditingEmail && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => setIsEditingEmail(false)}
+                        data-testid="button-cancel-gcal-email"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <iframe
+                src={buildGcalUrl(gcalEmail)}
+                className="flex-1 w-full border-0"
+                style={{
+                  minHeight: 0,
+                  ...(resolvedTheme === "dark" ? {
+                    filter: "invert(0.88) hue-rotate(180deg)",
+                  } : {}),
+                }}
+                title="Google Calendar"
+                data-testid="gcal-iframe"
+              />
+            )}
+          </div>
+        )}
 
-        <div className="w-80 border-l bg-background shrink-0 overflow-hidden flex flex-col">
+        <div className="w-80 shrink-0 overflow-hidden flex flex-col border-l-0">
           <Tabs
             value={sideTab}
             onValueChange={setSideTab}
             className="flex flex-col h-full"
           >
-            <div className="border-b px-2">
+            <div className="border-b px-1">
               <TabsList className="w-full bg-transparent justify-start gap-0 h-auto p-0">
                 <TabsTrigger
                   value="tasks"
-                  className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 py-2.5"
+                  className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-3 py-2"
                   data-testid="tab-tasks"
                 >
-                  <ListTodo className="w-4 h-4 mr-1.5" />
-                  Tasks
+                  <ListTodo className="w-3.5 h-3.5 mr-1.5" />
+                  <span className="text-xs">Tasks</span>
                 </TabsTrigger>
                 <TabsTrigger
                   value="habits"
-                  className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 py-2.5"
+                  className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-3 py-2"
                   data-testid="tab-habits"
                 >
-                  <Repeat className="w-4 h-4 mr-1.5" />
-                  Habits
+                  <Repeat className="w-3.5 h-3.5 mr-1.5" />
+                  <span className="text-xs">Habits</span>
                 </TabsTrigger>
               </TabsList>
             </div>

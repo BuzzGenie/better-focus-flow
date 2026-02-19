@@ -43,6 +43,7 @@ export const settings = pgTable("settings", {
   workEnd: text("work_end").notNull().default("17:00"),
   workDays: integer("work_days").array().notNull().default(sql`'{1,2,3,4,5}'`),
   minBlockMinutes: integer("min_block_minutes").notNull().default(15),
+  gcalEmail: text("gcal_email"),
 });
 
 export const insertTaskSchema = createInsertSchema(tasks).omit({ id: true });

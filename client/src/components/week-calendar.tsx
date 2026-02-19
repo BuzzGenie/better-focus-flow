@@ -120,7 +120,7 @@ export function WeekCalendar({
             return (
               <div
                 key={dayIndex}
-                className={cn("flex-1 relative border-l", today && "bg-primary/[0.02]")}
+                className={cn("flex-1 relative border-l", today && "bg-primary/[0.03]")}
               >
                 {HOURS.map((hour) => (
                   <div
