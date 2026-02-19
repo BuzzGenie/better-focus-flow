@@ -16,7 +16,17 @@ export async function registerRoutes(
   });
 
   app.post("/api/tasks", async (req, res) => {
-    const parsed = insertTaskSchema.safeParse(req.body);
+    const body = { ...req.body };
+    if (body.deadline && typeof body.deadline === "string") {
+      body.deadline = new Date(body.deadline);
+    }
+    if (body.scheduledStart && typeof body.scheduledStart === "string") {
+      body.scheduledStart = new Date(body.scheduledStart);
+    }
+    if (body.scheduledEnd && typeof body.scheduledEnd === "string") {
+      body.scheduledEnd = new Date(body.scheduledEnd);
+    }
+    const parsed = insertTaskSchema.safeParse(body);
     if (!parsed.success) {
       return res.status(400).json({ message: parsed.error.message });
     }
@@ -28,7 +38,18 @@ export async function registerRoutes(
     const existing = await storage.getTask(req.params.id);
     if (!existing) return res.status(404).json({ message: "Task not found" });
 
-    const task = await storage.updateTask(req.params.id, req.body);
+    const body = { ...req.body };
+    if (body.deadline && typeof body.deadline === "string") {
+      body.deadline = new Date(body.deadline);
+    }
+    if (body.scheduledStart && typeof body.scheduledStart === "string") {
+      body.scheduledStart = new Date(body.scheduledStart);
+    }
+    if (body.scheduledEnd && typeof body.scheduledEnd === "string") {
+      body.scheduledEnd = new Date(body.scheduledEnd);
+    }
+
+    const task = await storage.updateTask(req.params.id, body);
     if (!task) return res.status(404).json({ message: "Task not found" });
 
     if (req.body.status === "done" || req.body.scheduledStart === null) {
